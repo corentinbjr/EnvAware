@@ -3,7 +3,7 @@
     "name": "EnvAware",
     "short_name": "EnvAware",
     "version": "1.0.0",
-    "description": "Instantly identify your environment with customizable watermark overlays. Supports wildcards, per-site configs, presets, and live preview — no page reload needed.",
+    "description": "Instantly identify your environment with custom watermark overlays. Supports wildcards, per-site configs, presets, and live preview.",
     "homepage_url": "https://github.com/corentinbjr/EnvAware",
     "permissions": [
         "storage",
@@ -31,7 +31,7 @@
             ],
             "js": [
                 "js/core.js",
-                "content.js"
+                "js/content.js"
             ],
             "run_at": "document_end"
         }

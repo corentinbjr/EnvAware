@@ -1,5 +1,18 @@
+/**
+ * EnvAware — Options page controller.
+ * Manages the full configuration list, create/edit/delete panels, and import/export.
+ * @see https://github.com/corentinbjr/EnvAware
+ */
+'use strict';
+
 document.addEventListener('DOMContentLoaded', () => {
-    const { STORAGE_KEY, isPatternConfig, globToRegex, escapeHtml, showToast } = window.EnvAware;
+    const {
+        STORAGE_KEY, DEFAULT_CONFIG,
+        isPatternConfig, globToRegex, escapeHtml,
+        showToast, mountPresetManager
+    } = window.EnvAware;
+
+    /* ── Element refs ────────────────────────────── */
 
     const configList   = document.getElementById('configs');
     const emptyState   = document.getElementById('emptyState');
@@ -20,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.storage.sync.set({ [STORAGE_KEY]: allConfigs }, callback);
     }
 
-    /* ── Overlap Detection ──────────────────────── */
+    /* ── Overlap Detection ───────────────────────── */
 
     function findOverlaps(config) {
         const overlaps = [];
@@ -47,7 +60,102 @@ document.addEventListener('DOMContentLoaded', () => {
         return overlaps;
     }
 
-    /* ── Render Config List ─────────────────────── */
+    /* ── Config Item HTML Builder ─────────────────── */
+
+    function buildConfigItemHtml(config, uid, overlaps) {
+        const isPattern = isPatternConfig(config.pattern);
+
+        const overlapHtml = overlaps.length > 0
+            ? `<span class="overlap-badge" title="May overlap with: ${overlaps.map(o => escapeHtml(o.pattern)).join(', ')}">⚠️ ${overlaps.length} overlap${overlaps.length > 1 ? 's' : ''}</span>`
+            : '';
+
+        const typeTag = isPattern
+            ? `<span class="tag tag-pattern">pattern</span>`
+            : `<span class="tag tag-exact">exact</span>`;
+
+        return `
+            <div class="config-item-header">
+                <div class="config-info">
+                    <h3>
+                        <span class="pattern-text">${escapeHtml(config.pattern)}</span>
+                        ${typeTag} ${overlapHtml}
+                    </h3>
+                    <p>
+                        <span class="tag tag-text"><span class="color-dot" style="background:${config.color}"></span> ${escapeHtml(config.text)}</span>
+                        <span class="tag tag-size">${config.size}px</span>
+                        <span class="tag tag-opacity">α ${config.opacity}</span>
+                    </p>
+                </div>
+                <div class="config-right">
+                    <label class="switch" title="Toggle watermark">
+                        <input type="checkbox" class="toggle-enabled" data-id="${config.id}" ${config.enabled ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                    <div class="config-actions">
+                        ${!isPattern ? `<button class="visit-btn" data-pattern="${escapeHtml(config.pattern)}" title="Open in new tab">Visit</button>` : ''}
+                        <button class="edit-btn" data-uid="${uid}">Edit</button>
+                        <button class="delete-btn" data-id="${config.id}">Delete</button>
+                    </div>
+                </div>
+            </div>
+            <div class="edit-panel" id="panel-${uid}">
+                <div class="edit-grid">
+                    <div class="form-group full-width">
+                        <label>URL Pattern</label>
+                        <input type="text" class="edit-pattern" value="${escapeHtml(config.pattern)}">
+                        <div class="pattern-help">Use <code>*</code> as wildcard. Exact URLs have higher priority.</div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Watermark Text</label>
+                        <input type="text" class="edit-text" value="${escapeHtml(config.text)}">
+                        <div class="edit-presets-container"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Text Color</label>
+                        <div class="color-input-wrapper">
+                            <input type="color" class="edit-color" value="${config.color}">
+                            <span class="value-display value-display--left">${config.color}</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Size (px)</label>
+                        <div class="slider-container">
+                            <input type="range" class="edit-size" min="12" max="100" value="${config.size}">
+                            <span class="value-display">${config.size}px</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Spacing</label>
+                        <div class="slider-container">
+                            <input type="range" class="edit-spacing" min="100" max="800" step="10" value="${config.spacing}">
+                            <span class="value-display">${config.spacing}</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Opacity</label>
+                        <div class="slider-container">
+                            <input type="range" class="edit-opacity" min="0.05" max="1" step="0.05" value="${config.opacity}">
+                            <span class="value-display">${config.opacity}</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="switch-row">
+                            <label>Add to Tab Title</label>
+                            <label class="switch">
+                                <input type="checkbox" class="edit-title-prefix" ${config.addTitlePrefix ? 'checked' : ''}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="edit-actions">
+                    <button class="btn-cancel" data-uid="${uid}">Cancel</button>
+                    <button class="btn-save" data-id="${config.id}" data-uid="${uid}">Save</button>
+                </div>
+            </div>`;
+    }
+
+    /* ── Render Config List ───────────────────────── */
 
     function renderConfigs(filterText = '') {
         configList.innerHTML = '';
@@ -81,183 +189,129 @@ document.addEventListener('DOMContentLoaded', () => {
         filtered.forEach((config, index) => {
             const uid = 'cfg_' + config.id;
             const overlaps = findOverlaps(config);
-            const isPattern = isPatternConfig(config.pattern);
-
-            const overlapHtml = overlaps.length > 0
-                ? `<span class="overlap-badge" title="May overlap with: ${overlaps.map(o => escapeHtml(o.pattern)).join(', ')}">⚠️ ${overlaps.length} overlap${overlaps.length > 1 ? 's' : ''}</span>`
-                : '';
-
-            const typeTag = isPattern
-                ? `<span class="tag tag-pattern">pattern</span>`
-                : `<span class="tag tag-exact">exact</span>`;
 
             const div = document.createElement('div');
             div.className = 'config-item';
             div.style.animationDelay = `${index * 0.05}s`;
-            div.innerHTML = `
-                <div class="config-item-header">
-                    <div class="config-info">
-                        <h3>
-                            <span class="pattern-text">${escapeHtml(config.pattern)}</span>
-                            ${typeTag} ${overlapHtml}
-                        </h3>
-                        <p>
-                            <span class="tag tag-text"><span class="color-dot" style="background:${config.color}"></span> ${escapeHtml(config.text)}</span>
-                            <span class="tag tag-size">${config.size}px</span>
-                            <span class="tag tag-opacity">α ${config.opacity}</span>
-                        </p>
-                    </div>
-                    <div class="config-right">
-                        <label class="switch" title="Toggle watermark">
-                            <input type="checkbox" class="toggle-enabled" data-id="${config.id}" ${config.enabled ? 'checked' : ''}>
-                            <span class="slider"></span>
-                        </label>
-                        <div class="config-actions">
-                            ${!isPattern ? `<button class="visit-btn" data-pattern="${escapeHtml(config.pattern)}" title="Open in new tab">Visit</button>` : ''}
-                            <button class="edit-btn" data-uid="${uid}">Edit</button>
-                            <button class="delete-btn" data-id="${config.id}">Delete</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="edit-panel" id="panel-${uid}">
-                    <div class="edit-grid">
-                        <div class="form-group full-width">
-                            <label>URL Pattern</label>
-                            <input type="text" class="edit-pattern" value="${escapeHtml(config.pattern)}">
-                            <div class="pattern-help">Use <code>*</code> as wildcard. Exact URLs have higher priority.</div>
-                        </div>
-                        <div class="form-group full-width">
-                            <label>Watermark Text</label>
-                            <input type="text" class="edit-text" value="${escapeHtml(config.text)}">
-                        </div>
-                        <div class="form-group">
-                            <label>Text Color</label>
-                            <div class="color-input-wrapper">
-                                <input type="color" class="edit-color" value="${config.color}">
-                                <span class="value-display value-display--left">${config.color}</span>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Size (px)</label>
-                            <div class="slider-container">
-                                <input type="range" class="edit-size" min="12" max="100" value="${config.size}">
-                                <span class="value-display">${config.size}px</span>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Spacing</label>
-                            <div class="slider-container">
-                                <input type="range" class="edit-spacing" min="100" max="800" step="10" value="${config.spacing}">
-                                <span class="value-display">${config.spacing}</span>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Opacity</label>
-                            <div class="slider-container">
-                                <input type="range" class="edit-opacity" min="0.05" max="1" step="0.05" value="${config.opacity}">
-                                <span class="value-display">${config.opacity}</span>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <div class="switch-row">
-                                <label>Add to Tab Title</label>
-                                <label class="switch">
-                                    <input type="checkbox" class="edit-title-prefix" ${config.addTitlePrefix ? 'checked' : ''}>
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="edit-actions">
-                        <button class="btn-cancel" data-uid="${uid}">Cancel</button>
-                        <button class="btn-save" data-id="${config.id}" data-uid="${uid}">Save</button>
-                    </div>
-                </div>`;
+            div.innerHTML = buildConfigItemHtml(config, uid, overlaps);
             configList.appendChild(div);
         });
 
-        bindListEvents();
+        mountPresetsInEditPanels();
     }
 
-    /* ── List Event Handlers ────────────────────── */
+    /* ── Mount presets inside each edit panel ─────── */
 
-    function bindListEvents() {
-        configList.querySelectorAll('.edit-panel input[type="color"]').forEach(el => {
-            el.addEventListener('input', e => e.target.closest('.color-input-wrapper').querySelector('.value-display').textContent = e.target.value);
-        });
-
-        configList.querySelectorAll('.edit-panel input[type="range"]').forEach(el => {
-            el.addEventListener('input', e => {
-                const suffix = e.target.classList.contains('edit-size') ? 'px' : '';
-                e.target.closest('.slider-container').querySelector('.value-display').textContent = e.target.value + suffix;
-            });
-        });
-
-        configList.querySelectorAll('.toggle-enabled').forEach(el => {
-            el.addEventListener('change', e => {
-                const config = allConfigs.find(c => c.id === e.target.dataset.id);
-                if (!config) return;
-                config.enabled = e.target.checked;
-                saveConfigs(() => toast(config.enabled ? 'Watermark enabled' : 'Watermark disabled'));
-            });
-        });
-
-        configList.querySelectorAll('.edit-btn').forEach(el => {
-            el.addEventListener('click', e => {
-                const panel = document.getElementById(`panel-${e.target.dataset.uid}`);
-                const isOpen = panel.classList.contains('open');
-                configList.querySelectorAll('.edit-panel.open').forEach(p => p.classList.remove('open'));
-                if (!isOpen) panel.classList.add('open');
-            });
-        });
-
-        configList.querySelectorAll('.btn-cancel').forEach(el => {
-            el.addEventListener('click', e => document.getElementById(`panel-${e.target.dataset.uid}`).classList.remove('open'));
-        });
-
-        configList.querySelectorAll('.btn-save').forEach(el => {
-            el.addEventListener('click', e => {
-                const panel = document.getElementById(`panel-${e.target.dataset.uid}`);
-                const pattern = panel.querySelector('.edit-pattern').value.trim();
-                if (!pattern) { toast('URL pattern is required', 'error'); return; }
-
-                const config = allConfigs.find(c => c.id === e.target.dataset.id);
-                if (!config) return;
-
-                Object.assign(config, {
-                    pattern,
-                    text:           panel.querySelector('.edit-text').value || 'LOCAL',
-                    color:          panel.querySelector('.edit-color').value,
-                    size:           parseInt(panel.querySelector('.edit-size').value, 10),
-                    spacing:        parseInt(panel.querySelector('.edit-spacing').value, 10),
-                    opacity:        parseFloat(panel.querySelector('.edit-opacity').value),
-                    addTitlePrefix: panel.querySelector('.edit-title-prefix').checked
-                });
-
-                saveConfigs(() => {
-                    panel.classList.remove('open');
-                    renderConfigs(searchInput.value);
-                    toast('Configuration saved');
-                });
-            });
-        });
-
-        configList.querySelectorAll('.visit-btn').forEach(el => {
-            el.addEventListener('click', e => {
-                window.open(e.target.dataset.pattern, '_blank');
-            });
-        });
-
-        configList.querySelectorAll('.delete-btn').forEach(el => {
-            el.addEventListener('click', e => {
-                if (!confirm('Delete this configuration?')) return;
-                allConfigs = allConfigs.filter(c => c.id !== e.target.dataset.id);
-                saveConfigs(() => { renderConfigs(searchInput.value); toast('Configuration deleted'); });
+    function mountPresetsInEditPanels() {
+        configList.querySelectorAll('.edit-presets-container').forEach(container => {
+            const panel = container.closest('.edit-panel');
+            mountPresetManager(container, {
+                toastFn: toast,
+                onApply(preset) {
+                    panel.querySelector('.edit-text').value = preset.name;
+                    const colorInput = panel.querySelector('.edit-color');
+                    colorInput.value = preset.color;
+                    colorInput.closest('.color-input-wrapper').querySelector('.value-display').textContent = preset.color;
+                    const sizeInput = panel.querySelector('.edit-size');
+                    sizeInput.value = preset.size;
+                    sizeInput.closest('.slider-container').querySelector('.value-display').textContent = preset.size + 'px';
+                    const spacingInput = panel.querySelector('.edit-spacing');
+                    spacingInput.value = preset.spacing;
+                    spacingInput.closest('.slider-container').querySelector('.value-display').textContent = preset.spacing;
+                    const opacityInput = panel.querySelector('.edit-opacity');
+                    opacityInput.value = preset.opacity;
+                    opacityInput.closest('.slider-container').querySelector('.value-display').textContent = preset.opacity;
+                }
             });
         });
     }
 
-    /* ── Create Panel ───────────────────────────── */
+    /* ── Delegated Event Handlers ─────────────────── */
+
+    configList.addEventListener('change', e => {
+        const target = e.target;
+
+        if (target.matches('.toggle-enabled')) {
+            const config = allConfigs.find(c => c.id === target.dataset.id);
+            if (!config) return;
+            config.enabled = target.checked;
+            saveConfigs(() => toast(config.enabled ? 'Watermark enabled' : 'Watermark disabled'));
+        }
+    });
+
+    configList.addEventListener('input', e => {
+        const target = e.target;
+
+        if (target.matches('.edit-color')) {
+            target.closest('.color-input-wrapper').querySelector('.value-display').textContent = target.value;
+        }
+
+        if (target.matches('input[type="range"]')) {
+            const suffix = target.classList.contains('edit-size') ? 'px' : '';
+            target.closest('.slider-container').querySelector('.value-display').textContent = target.value + suffix;
+        }
+    });
+
+    configList.addEventListener('click', e => {
+        const target = e.target;
+
+        /* ── Edit button ───────────────────────────── */
+        if (target.matches('.edit-btn')) {
+            const panel = document.getElementById(`panel-${target.dataset.uid}`);
+            const isOpen = panel.classList.contains('open');
+            configList.querySelectorAll('.edit-panel.open').forEach(p => p.classList.remove('open'));
+            if (!isOpen) panel.classList.add('open');
+            return;
+        }
+
+        /* ── Cancel button ─────────────────────────── */
+        if (target.matches('.btn-cancel')) {
+            document.getElementById(`panel-${target.dataset.uid}`).classList.remove('open');
+            return;
+        }
+
+        /* ── Save button ───────────────────────────── */
+        if (target.matches('.btn-save')) {
+            const panel = document.getElementById(`panel-${target.dataset.uid}`);
+            const pattern = panel.querySelector('.edit-pattern').value.trim();
+            if (!pattern) { toast('URL pattern is required', 'error'); return; }
+
+            const config = allConfigs.find(c => c.id === target.dataset.id);
+            if (!config) return;
+
+            Object.assign(config, {
+                pattern,
+                text:           panel.querySelector('.edit-text').value || 'LOCAL',
+                color:          panel.querySelector('.edit-color').value,
+                size:           parseInt(panel.querySelector('.edit-size').value, 10),
+                spacing:        parseInt(panel.querySelector('.edit-spacing').value, 10),
+                opacity:        parseFloat(panel.querySelector('.edit-opacity').value),
+                addTitlePrefix: panel.querySelector('.edit-title-prefix').checked
+            });
+
+            saveConfigs(() => {
+                panel.classList.remove('open');
+                renderConfigs(searchInput.value);
+                toast('Configuration saved');
+            });
+            return;
+        }
+
+        /* ── Visit button ──────────────────────────── */
+        if (target.matches('.visit-btn')) {
+            window.open(target.dataset.pattern, '_blank');
+            return;
+        }
+
+        /* ── Delete button ─────────────────────────── */
+        if (target.matches('.delete-btn')) {
+            if (!confirm('Delete this configuration?')) return;
+            allConfigs = allConfigs.filter(c => c.id !== target.dataset.id);
+            saveConfigs(() => { renderConfigs(searchInput.value); toast('Configuration deleted'); });
+        }
+    });
+
+    /* ── Create Panel ────────────────────────────── */
 
     function setupCreatePanel() {
         const fields = {
@@ -284,14 +338,25 @@ document.addEventListener('DOMContentLoaded', () => {
             createPanel.classList.toggle('open');
             if (createPanel.classList.contains('open')) {
                 fields.pattern.value = '';
-                fields.text.value = 'LOCAL';
-                fields.color.value = '#ff0000'; fields.colorVal.textContent = '#ff0000';
-                fields.size.value = 26;         fields.sizeVal.textContent = '26px';
-                fields.spacing.value = 450;     fields.spacingVal.textContent = '450';
-                fields.opacity.value = 0.3;     fields.opacityVal.textContent = '0.3';
-                fields.titlePrefix.checked = false;
+                fields.text.value = DEFAULT_CONFIG.text;
+                fields.color.value = DEFAULT_CONFIG.color;    fields.colorVal.textContent = DEFAULT_CONFIG.color;
+                fields.size.value = DEFAULT_CONFIG.size;       fields.sizeVal.textContent = DEFAULT_CONFIG.size + 'px';
+                fields.spacing.value = DEFAULT_CONFIG.spacing; fields.spacingVal.textContent = String(DEFAULT_CONFIG.spacing);
+                fields.opacity.value = DEFAULT_CONFIG.opacity; fields.opacityVal.textContent = String(DEFAULT_CONFIG.opacity);
+                fields.titlePrefix.checked = DEFAULT_CONFIG.addTitlePrefix;
                 fields.enabled.checked = true;
                 fields.pattern.focus();
+            }
+        });
+
+        mountPresetManager(document.getElementById('createPresetsContainer'), {
+            toastFn: toast,
+            onApply(preset) {
+                fields.text.value = preset.name;
+                fields.color.value = preset.color; fields.colorVal.textContent = preset.color;
+                fields.size.value = preset.size;   fields.sizeVal.textContent = preset.size + 'px';
+                fields.spacing.value = preset.spacing; fields.spacingVal.textContent = preset.spacing;
+                fields.opacity.value = preset.opacity; fields.opacityVal.textContent = preset.opacity;
             }
         });
 
@@ -325,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /* ── Export / Import ─────────────────────────── */
+    /* ── Export / Import ──────────────────────────── */
 
     exportBtn.addEventListener('click', () => {
         if (allConfigs.length === 0) { toast('No configurations to export', 'info'); return; }
@@ -361,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
         importFile.value = '';
     });
 
-    /* ── Init ────────────────────────────────────── */
+    /* ── Init ─────────────────────────────────────── */
 
     searchInput.addEventListener('input', e => renderConfigs(e.target.value));
     setupCreatePanel();

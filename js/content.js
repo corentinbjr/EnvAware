@@ -1,11 +1,19 @@
+/**
+ * EnvAware — Content script.
+ * Injects and updates the watermark overlay on matching pages.
+ * @see https://github.com/corentinbjr/EnvAware
+ */
 (function () {
-    const { STORAGE_KEY, globToRegex, getSpecificity, findMatchingConfig } = window.EnvAware;
+    'use strict';
+
+    const { STORAGE_KEY, findMatchingConfig } = window.EnvAware;
     const OVERLAY_ID = 'envaware-overlay-container';
 
     function getOrigin() {
         return window.location.origin;
     }
 
+    /** Builds a repeating SVG watermark tile as a CSS `url(…)` value. */
     function createSVGBackground(text, color, size, spacing, opacity) {
         const safeText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const center = spacing / 2;
@@ -19,6 +27,7 @@
 
     let lastPrefix = null;
 
+    /** Creates or updates the full-screen watermark overlay. */
     function applyWatermark(settings) {
         let overlay = document.getElementById(OVERLAY_ID);
         const newPrefix = `[${settings.text || 'LOCAL'}] `;
@@ -62,6 +71,7 @@
         );
     }
 
+    /** Removes the overlay and cleans up any title prefix. */
     function removeWatermark() {
         const overlay = document.getElementById(OVERLAY_ID);
         if (overlay) overlay.remove();
@@ -71,6 +81,7 @@
         }
     }
 
+    /** Reads storage, finds best matching config, and applies or removes the watermark. */
     function loadAndApply() {
         const origin = getOrigin();
         chrome.storage.sync.get([STORAGE_KEY], (result) => {
@@ -79,6 +90,8 @@
             match ? applyWatermark(match) : removeWatermark();
         });
     }
+
+    /* ── Bootstrap ────────────────────────────────── */
 
     loadAndApply();
 

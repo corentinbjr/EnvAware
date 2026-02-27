@@ -18,36 +18,13 @@
         </label>
     </div>
 
+    <div class="override-banner" id="overrideBanner"></div>
+
     <div class="card">
         <div class="form-group">
             <label for="watermarkText">Watermark Text</label>
             <input type="text" id="watermarkText" placeholder="e.g. LOCAL ENV">
-            <div class="presets-section">
-                <div class="presets-header">
-                    <label>Quick Presets</label>
-                    <button class="add-preset-btn" id="addPresetToggle">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Add
-                    </button>
-                </div>
-                <div class="presets-grid" id="presetsGrid"></div>
-                <div class="preset-form" id="presetForm">
-                    <div class="preset-form-row">
-                        <div class="preset-form-field preset-form-field--name">
-                            <label>Name</label>
-                            <input type="text" id="newPresetName" placeholder="e.g. QA">
-                        </div>
-                        <div class="preset-form-field preset-form-field--color">
-                            <label>Color</label>
-                            <input type="color" id="newPresetColor" value="#8b5cf6">
-                        </div>
-                    </div>
-                    <div class="preset-form-actions">
-                        <button class="preset-cancel-btn" id="presetCancelBtn">Cancel</button>
-                        <button class="preset-save-btn" id="presetSaveBtn">Save Preset</button>
-                    </div>
-                </div>
-            </div>
+            <div id="presetsContainer"></div>
         </div>
 
         <div class="divider"></div>
@@ -104,6 +81,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script src="js/core.js"></script>
+    <script src="js/presets.js"></script>
     <script src="js/popup.js"></script>
 </body>
 
