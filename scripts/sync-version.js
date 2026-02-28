@@ -1,6 +1,6 @@
 /**
- * Syncs the version from package.json into manifest.json.
- * Called by release-it's after:bump hook.
+ * Syncs the version into manifest.json and package.json.
+ * Called by release-it's after:bump hook (npm is disabled so we do it ourselves).
  *
  * Usage: node scripts/sync-version.js 1.2.3
  */
@@ -13,8 +13,12 @@ if (!version) {
     process.exit(1);
 }
 
-const manifestPath = path.join(__dirname, '..', 'manifest.json');
-const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-manifest.version = version;
-fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4) + '\n');
-console.log(`manifest.json version updated to ${version}`);
+const root = path.join(__dirname, '..');
+
+['manifest.json', 'package.json'].forEach(file => {
+    const filePath = path.join(root, file);
+    const json = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    json.version = version;
+    fs.writeFileSync(filePath, JSON.stringify(json, null, 4) + '\n');
+    console.log(`${file} version updated to ${version}`);
+});
