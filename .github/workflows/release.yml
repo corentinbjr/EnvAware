@@ -35,19 +35,21 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Bump version, tag, and push
-        run: npx release-it ${{ inputs.version }} --ci
+        id: release
+        run: |
+          npx release-it ${{ inputs.version }} --ci
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Released version: ${VERSION}"
+          ls -la envaware-*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get new version
-        id: version
-        run: echo "tag=v$(node -p 'require(\"./package.json\").version')" >> "$GITHUB_OUTPUT"
-
       - name: Create GitHub Release
         run: |
-          gh release create "${{ steps.version.outputs.tag }}" \
-            envaware-${{ steps.version.outputs.tag }}.zip \
-            --title "${{ steps.version.outputs.tag }}" \
+          gh release create "v${{ steps.release.outputs.version }}" \
+            "envaware-v${{ steps.release.outputs.version }}.zip" \
+            --title "v${{ steps.release.outputs.version }}" \
             --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
