@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EnvAware</title>
     <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/banners.css">
+    <link rel="stylesheet" href="css/presets.css">
     <link rel="stylesheet" href="css/popup.css">
 </head>
 
@@ -19,6 +21,8 @@
     </div>
 
     <div class="override-banner" id="overrideBanner"></div>
+    <div class="preset-banner" id="presetBanner"></div>
+    <div class="exclusion-banner" id="exclusionBanner"></div>
 
     <div class="card">
         <div class="form-group">
@@ -79,6 +83,36 @@
     <div class="footer">Corentin Bonjour – Avisto</div>
 
     <div class="toast-container" id="toastContainer"></div>
+
+    <template id="overrideBannerTpl">
+        <div class="override-banner-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+        </div>
+        <div class="override-banner-body">
+            <div class="override-banner-title">Using pattern <code data-slot="pattern"></code></div>
+            <div class="override-banner-desc">Changes will affect all matching sites</div>
+            <div class="override-banner-excludes">
+                <button class="override-exclude-btn" data-action="exclude-site" type="button">Disable site</button>
+                <button class="override-exclude-btn" data-action="exclude-url" type="button">Disable URL</button>
+            </div>
+        </div>
+        <button class="override-banner-btn" data-action="customize" type="button">Customize this site</button>
+    </template>
+
+    <template id="exclusionBannerTpl">
+        <div class="exclusion-banner-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+            </svg>
+        </div>
+        <div class="exclusion-banner-body">
+            <div class="exclusion-banner-title">Excluded from <code data-slot="pattern"></code></div>
+            <div class="exclusion-banner-desc">This site is excluded from the watermark pattern</div>
+        </div>
+        <button class="exclusion-banner-btn" data-action="remove-exclusion" type="button">Remove exclusion</button>
+    </template>
 
     <script src="js/core.js"></script>
     <script src="js/presets.js"></script>

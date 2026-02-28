@@ -1,6 +1,6 @@
-/* ── Popup Layout ─────────────────────────────── */
+/* -- Popup Layout ------------------------------- */
 
-body { width: 340px; padding: 14px; }
+body { width: 400px; padding: 14px; }
 
 .header { margin-bottom: 12px; }
 
@@ -12,7 +12,21 @@ body { width: 340px; padding: 14px; }
 
 .footer { margin-top: 10px; }
 
-.override-banner.visible { padding: 10px 12px; margin-bottom: 10px; }
+/* -- Compact Banners --------------------------- */
+
+.override-banner.visible { padding: 10px 12px; margin-bottom: 8px; }
+.preset-banner.visible   { padding: 10px 12px; margin-bottom: 8px; }
+.exclusion-banner.visible { padding: 10px 12px; margin-bottom: 8px; }
+
+.override-banner-icon,
+.preset-banner-icon,
+.exclusion-banner-icon { width: 26px; height: 26px; }
+
+.override-banner-icon svg,
+.preset-banner-icon svg,
+.exclusion-banner-icon svg { width: 14px; height: 14px; }
+
+/* -- Other Popup Overrides --------------------- */
 
 .presets-section { margin-top: 4px; }
 .presets-header { margin-bottom: 4px; }

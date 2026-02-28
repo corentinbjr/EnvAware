@@ -9,10 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const {
         STORAGE_KEY, DEFAULT_CONFIG,
         isPatternConfig, globToRegex, escapeHtml,
-        showToast, mountPresetManager
+        showToast, mountPresetManager, buildConfigItemHtml, setupImportExport
     } = window.EnvAware;
 
-    /* ── Element refs ────────────────────────────── */
+    /* -- Element refs ------------------------------ */
 
     const configList   = document.getElementById('configs');
     const emptyState   = document.getElementById('emptyState');
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.storage.sync.set({ [STORAGE_KEY]: allConfigs }, callback);
     }
 
-    /* ── Overlap Detection ───────────────────────── */
+    /* -- Overlap Detection ------------------------- */
 
     function findOverlaps(config) {
         const overlaps = [];
@@ -60,102 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return overlaps;
     }
 
-    /* ── Config Item HTML Builder ─────────────────── */
-
-    function buildConfigItemHtml(config, uid, overlaps) {
-        const isPattern = isPatternConfig(config.pattern);
-
-        const overlapHtml = overlaps.length > 0
-            ? `<span class="overlap-badge" title="May overlap with: ${overlaps.map(o => escapeHtml(o.pattern)).join(', ')}">⚠️ ${overlaps.length} overlap${overlaps.length > 1 ? 's' : ''}</span>`
-            : '';
-
-        const typeTag = isPattern
-            ? `<span class="tag tag-pattern">pattern</span>`
-            : `<span class="tag tag-exact">exact</span>`;
-
-        return `
-            <div class="config-item-header">
-                <div class="config-info">
-                    <h3>
-                        <span class="pattern-text">${escapeHtml(config.pattern)}</span>
-                        ${typeTag} ${overlapHtml}
-                    </h3>
-                    <p>
-                        <span class="tag tag-text"><span class="color-dot" style="background:${config.color}"></span> ${escapeHtml(config.text)}</span>
-                        <span class="tag tag-size">${config.size}px</span>
-                        <span class="tag tag-opacity">α ${config.opacity}</span>
-                    </p>
-                </div>
-                <div class="config-right">
-                    <label class="switch" title="Toggle watermark">
-                        <input type="checkbox" class="toggle-enabled" data-id="${config.id}" ${config.enabled ? 'checked' : ''}>
-                        <span class="slider"></span>
-                    </label>
-                    <div class="config-actions">
-                        ${!isPattern ? `<button class="visit-btn" data-pattern="${escapeHtml(config.pattern)}" title="Open in new tab">Visit</button>` : ''}
-                        <button class="edit-btn" data-uid="${uid}">Edit</button>
-                        <button class="delete-btn" data-id="${config.id}">Delete</button>
-                    </div>
-                </div>
-            </div>
-            <div class="edit-panel" id="panel-${uid}">
-                <div class="edit-grid">
-                    <div class="form-group full-width">
-                        <label>URL Pattern</label>
-                        <input type="text" class="edit-pattern" value="${escapeHtml(config.pattern)}">
-                        <div class="pattern-help">Use <code>*</code> as wildcard. Exact URLs have higher priority.</div>
-                    </div>
-                    <div class="form-group full-width">
-                        <label>Watermark Text</label>
-                        <input type="text" class="edit-text" value="${escapeHtml(config.text)}">
-                        <div class="edit-presets-container"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Text Color</label>
-                        <div class="color-input-wrapper">
-                            <input type="color" class="edit-color" value="${config.color}">
-                            <span class="value-display value-display--left">${config.color}</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Size (px)</label>
-                        <div class="slider-container">
-                            <input type="range" class="edit-size" min="12" max="100" value="${config.size}">
-                            <span class="value-display">${config.size}px</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Spacing</label>
-                        <div class="slider-container">
-                            <input type="range" class="edit-spacing" min="100" max="800" step="10" value="${config.spacing}">
-                            <span class="value-display">${config.spacing}</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Opacity</label>
-                        <div class="slider-container">
-                            <input type="range" class="edit-opacity" min="0.05" max="1" step="0.05" value="${config.opacity}">
-                            <span class="value-display">${config.opacity}</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <div class="switch-row">
-                            <label>Add to Tab Title</label>
-                            <label class="switch">
-                                <input type="checkbox" class="edit-title-prefix" ${config.addTitlePrefix ? 'checked' : ''}>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div class="edit-actions">
-                    <button class="btn-cancel" data-uid="${uid}">Cancel</button>
-                    <button class="btn-save" data-id="${config.id}" data-uid="${uid}">Save</button>
-                </div>
-            </div>`;
-    }
-
-    /* ── Render Config List ───────────────────────── */
+    /* -- Render Config List ------------------------- */
 
     function renderConfigs(filterText = '') {
         configList.innerHTML = '';
@@ -200,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mountPresetsInEditPanels();
     }
 
-    /* ── Mount presets inside each edit panel ─────── */
+    /* -- Mount presets inside each edit panel ------- */
 
     function mountPresetsInEditPanels() {
         configList.querySelectorAll('.edit-presets-container').forEach(container => {
@@ -208,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
             mountPresetManager(container, {
                 toastFn: toast,
                 onApply(preset) {
+                    panel.dataset.presetName = preset.name;
                     panel.querySelector('.edit-text').value = preset.name;
                     const colorInput = panel.querySelector('.edit-color');
                     colorInput.value = preset.color;
@@ -226,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /* ── Delegated Event Handlers ─────────────────── */
+    /* -- Delegated Event Handlers ------------------- */
 
     configList.addEventListener('change', e => {
         const target = e.target;
@@ -250,12 +156,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const suffix = target.classList.contains('edit-size') ? 'px' : '';
             target.closest('.slider-container').querySelector('.value-display').textContent = target.value + suffix;
         }
+
+        // Detach from preset on manual visual field change
+        if (target.matches('.edit-color, .edit-size, .edit-spacing, .edit-opacity')) {
+            const panel = target.closest('.edit-panel');
+            if (panel && panel.dataset.presetName) {
+                panel.dataset.presetName = '';
+                toast('Detached from preset', 'info');
+            }
+        }
     });
 
     configList.addEventListener('click', e => {
         const target = e.target;
 
-        /* ── Edit button ───────────────────────────── */
+        /* -- Edit button ----------------------------- */
         if (target.matches('.edit-btn')) {
             const panel = document.getElementById(`panel-${target.dataset.uid}`);
             const isOpen = panel.classList.contains('open');
@@ -264,13 +179,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        /* ── Cancel button ─────────────────────────── */
+        /* -- Cancel button --------------------------- */
         if (target.matches('.btn-cancel')) {
             document.getElementById(`panel-${target.dataset.uid}`).classList.remove('open');
             return;
         }
 
-        /* ── Save button ───────────────────────────── */
+        /* -- Save button ----------------------------- */
         if (target.matches('.btn-save')) {
             const panel = document.getElementById(`panel-${target.dataset.uid}`);
             const pattern = panel.querySelector('.edit-pattern').value.trim();
@@ -279,6 +194,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const config = allConfigs.find(c => c.id === target.dataset.id);
             if (!config) return;
 
+            const exclusions = Array.from(panel.querySelectorAll('.exclusion-chip')).map(chip => {
+                const del = chip.querySelector('.exclusion-chip-delete');
+                return del ? del.dataset.exclusion : chip.textContent.replace('✕', '').trim();
+            }).filter(Boolean);
+
             Object.assign(config, {
                 pattern,
                 text:           panel.querySelector('.edit-text').value || 'LOCAL',
@@ -286,7 +206,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 size:           parseInt(panel.querySelector('.edit-size').value, 10),
                 spacing:        parseInt(panel.querySelector('.edit-spacing').value, 10),
                 opacity:        parseFloat(panel.querySelector('.edit-opacity').value),
-                addTitlePrefix: panel.querySelector('.edit-title-prefix').checked
+                addTitlePrefix: panel.querySelector('.edit-title-prefix').checked,
+                presetName:     panel.dataset.presetName || null,
+                exclusions
             });
 
             saveConfigs(() => {
@@ -297,21 +219,57 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        /* ── Visit button ──────────────────────────── */
+        /* -- Visit button ---------------------------- */
         if (target.matches('.visit-btn')) {
             window.open(target.dataset.pattern, '_blank');
             return;
         }
 
-        /* ── Delete button ─────────────────────────── */
+        /* -- Delete button --------------------------- */
         if (target.matches('.delete-btn')) {
             if (!confirm('Delete this configuration?')) return;
             allConfigs = allConfigs.filter(c => c.id !== target.dataset.id);
             saveConfigs(() => { renderConfigs(searchInput.value); toast('Configuration deleted'); });
+            return;
+        }
+
+        /* -- Exclusion chip delete ------------------- */
+        if (target.matches('.exclusion-chip-delete')) {
+            const chip = target.closest('.exclusion-chip');
+            const list = target.closest('.exclusion-list');
+            if (chip && list) {
+                chip.remove();
+            }
+            return;
+        }
+
+        /* -- Exclusion add button -------------------- */
+        if (target.matches('.exclusion-add-btn')) {
+            const addRow = target.closest('.exclusion-add');
+            const input = addRow.querySelector('.edit-exclusion-input');
+            const value = input.value.trim();
+            if (!value) return;
+            const list = addRow.previousElementSibling;
+            const chip = document.createElement('span');
+            chip.className = 'exclusion-chip';
+            chip.innerHTML = `${escapeHtml(value)}<span class="exclusion-chip-delete" data-exclusion="${escapeHtml(value)}">✕</span>`;
+            list.appendChild(chip);
+            input.value = '';
+            return;
         }
     });
 
-    /* ── Create Panel ────────────────────────────── */
+    /* -- Create Panel ------------------------------ */
+
+    let createLinkedPreset = null;
+    let createExclusions = [];
+
+    function renderCreateExclusions() {
+        const list = document.getElementById('createExclusionList');
+        list.innerHTML = createExclusions.map(ex =>
+            `<span class="exclusion-chip">${escapeHtml(ex)}<span class="exclusion-chip-delete" data-exclusion="${escapeHtml(ex)}">✕</span></span>`
+        ).join('');
+    }
 
     function setupCreatePanel() {
         const fields = {
@@ -329,6 +287,17 @@ document.addEventListener('DOMContentLoaded', () => {
             enabled:    document.getElementById('createEnabled')
         };
 
+        // Detach from preset on manual visual change in create panel
+        const createVisualInputs = [fields.color, fields.size, fields.spacing, fields.opacity];
+        createVisualInputs.forEach(input => {
+            input.addEventListener('input', () => {
+                if (createLinkedPreset) {
+                    createLinkedPreset = null;
+                    toast('Detached from preset', 'info');
+                }
+            });
+        });
+
         fields.color.addEventListener('input',   () => fields.colorVal.textContent   = fields.color.value);
         fields.size.addEventListener('input',     () => fields.sizeVal.textContent    = fields.size.value + 'px');
         fields.spacing.addEventListener('input',  () => fields.spacingVal.textContent = fields.spacing.value);
@@ -337,6 +306,9 @@ document.addEventListener('DOMContentLoaded', () => {
         newConfigBtn.addEventListener('click', () => {
             createPanel.classList.toggle('open');
             if (createPanel.classList.contains('open')) {
+                createLinkedPreset = null;
+                createExclusions = [];
+                renderCreateExclusions();
                 fields.pattern.value = '';
                 fields.text.value = DEFAULT_CONFIG.text;
                 fields.color.value = DEFAULT_CONFIG.color;    fields.colorVal.textContent = DEFAULT_CONFIG.color;
@@ -349,9 +321,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        document.getElementById('createExclusionAddBtn').addEventListener('click', () => {
+            const input = document.getElementById('createExclusionInput');
+            const value = input.value.trim();
+            if (!value) return;
+            if (!createExclusions.includes(value)) {
+                createExclusions.push(value);
+                renderCreateExclusions();
+            }
+            input.value = '';
+        });
+
+        document.getElementById('createExclusionList').addEventListener('click', e => {
+            if (e.target.matches('.exclusion-chip-delete')) {
+                const ex = e.target.dataset.exclusion;
+                createExclusions = createExclusions.filter(v => v !== ex);
+                renderCreateExclusions();
+            }
+        });
+
         mountPresetManager(document.getElementById('createPresetsContainer'), {
             toastFn: toast,
             onApply(preset) {
+                createLinkedPreset = preset.name;
                 fields.text.value = preset.name;
                 fields.color.value = preset.color; fields.colorVal.textContent = preset.color;
                 fields.size.value = preset.size;   fields.sizeVal.textContent = preset.size + 'px';
@@ -360,7 +352,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        document.getElementById('createCancelBtn').addEventListener('click', () => createPanel.classList.remove('open'));
+        document.getElementById('createCancelBtn').addEventListener('click', () => {
+            createPanel.classList.remove('open');
+            createLinkedPreset = null;
+        });
 
         document.getElementById('createSaveBtn').addEventListener('click', () => {
             const pattern = fields.pattern.value.trim();
@@ -379,54 +374,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 size:           parseInt(fields.size.value, 10),
                 spacing:        parseInt(fields.spacing.value, 10),
                 opacity:        parseFloat(fields.opacity.value),
-                addTitlePrefix: fields.titlePrefix.checked
+                addTitlePrefix: fields.titlePrefix.checked,
+                presetName:     createLinkedPreset,
+                exclusions:     createExclusions.length > 0 ? [...createExclusions] : []
             });
 
             saveConfigs(() => {
                 createPanel.classList.remove('open');
+                createLinkedPreset = null;
                 renderConfigs(searchInput.value);
                 toast('Configuration created');
             });
         });
     }
 
-    /* ── Export / Import ──────────────────────────── */
+    /* -- Import/Export ------------------------------ */
 
-    exportBtn.addEventListener('click', () => {
-        if (allConfigs.length === 0) { toast('No configurations to export', 'info'); return; }
-        const blob = new Blob([JSON.stringify(allConfigs, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `envaware-configs-${new Date().toISOString().slice(0, 10)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast('Configurations exported');
+    setupImportExport({
+        setAllConfigs: (configs) => { allConfigs = configs; },
+        saveConfigs,
+        renderConfigs,
+        toast,
+        exportBtn,
+        importBtn,
+        importFile,
+        searchInput
     });
 
-    importBtn.addEventListener('click', () => importFile.click());
-
-    importFile.addEventListener('change', e => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = event => {
-            try {
-                const imported = JSON.parse(event.target.result);
-                if (!Array.isArray(imported)) { toast('Invalid format', 'error'); return; }
-                const valid = imported.filter(c => c.pattern && c.id);
-                if (valid.length === 0) { toast('No valid configurations', 'error'); return; }
-
-                valid.forEach(c => { if (!allConfigs.find(ex => ex.id === c.id)) allConfigs.push(c); });
-                saveConfigs(() => { renderConfigs(searchInput.value); toast(`${valid.length} imported`); });
-            } catch { toast('Invalid JSON file', 'error'); }
-        };
-        reader.readAsText(file);
-        importFile.value = '';
-    });
-
-    /* ── Init ─────────────────────────────────────── */
+    /* -- Init --------------------------------------- */
 
     searchInput.addEventListener('input', e => renderConfigs(e.target.value));
     setupCreatePanel();
@@ -434,5 +409,14 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.sync.get([STORAGE_KEY], result => {
         allConfigs = result[STORAGE_KEY] || [];
         renderConfigs();
+    });
+
+    // Keep in sync with changes made from the popup (e.g. exclusions)
+    chrome.storage.onChanged.addListener((changes) => {
+        if (!changes[STORAGE_KEY]) return;
+        // Don't re-render if an edit panel is open (would lose user's work)
+        if (configList.querySelector('.edit-panel.open')) return;
+        allConfigs = changes[STORAGE_KEY].newValue || [];
+        renderConfigs(searchInput.value);
     });
 });

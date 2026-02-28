@@ -84,14 +84,15 @@
     /** Reads storage, finds best matching config, and applies or removes the watermark. */
     function loadAndApply() {
         const origin = getOrigin();
+        const url = window.location.href;
         chrome.storage.sync.get([STORAGE_KEY], (result) => {
             const configs = result[STORAGE_KEY] || [];
-            const match = findMatchingConfig(configs, origin);
+            const match = findMatchingConfig(configs, origin, url);
             match ? applyWatermark(match) : removeWatermark();
         });
     }
 
-    /* ── Bootstrap ────────────────────────────────── */
+    /* -- Bootstrap ---------------------------------- */
 
     loadAndApply();
 

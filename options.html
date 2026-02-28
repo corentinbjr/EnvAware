@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EnvAware Configurations</title>
     <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/banners.css">
+    <link rel="stylesheet" href="css/presets.css">
     <link rel="stylesheet" href="css/options.css">
 </head>
 
@@ -90,6 +92,14 @@
                     </label>
                 </div>
             </div>
+            <div class="form-group full-width">
+                <label>Excluded Patterns</label>
+                <div class="exclusion-list" id="createExclusionList"></div>
+                <div class="exclusion-add">
+                    <input type="text" id="createExclusionInput" placeholder="e.g. *payment* or exact URL">
+                    <button class="exclusion-add-btn" id="createExclusionAddBtn" type="button">+ Add</button>
+                </div>
+            </div>
         </div>
         <div class="create-actions">
             <button class="btn-cancel" id="createCancelBtn">Cancel</button>
@@ -117,6 +127,8 @@
 
     <script src="js/core.js"></script>
     <script src="js/presets.js"></script>
+    <script src="js/options-templates.js"></script>
+    <script src="js/options-import-export.js"></script>
     <script src="js/options.js"></script>
 </body>
 

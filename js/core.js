@@ -7,12 +7,14 @@
 
 window.EnvAware = {
 
-    /* ── Storage Keys ────────────────────────────── */
+    /* -- Storage Keys ------------------------------ */
 
     STORAGE_KEY:  'wm_configs',
     PRESETS_KEY:  'wm_custom_presets',
 
-    /* ── Default Values ──────────────────────────── */
+    /* -- Default Values ---------------------------- */
+
+    VISUAL_FIELDS: ['color', 'size', 'spacing', 'opacity'],
 
     DEFAULT_CONFIG: {
         enabled:        false,
@@ -31,25 +33,83 @@ window.EnvAware = {
         { name: 'PROD',    color: '#ef4444', size: 27, spacing: 260, opacity: 0.75, builtIn: true }
     ],
 
-    /* ── Preset Storage ──────────────────────────── */
+    /* -- Preset Storage ---------------------------- */
 
-    /** Returns a promise resolving to built-in + custom presets combined. */
+    /** Returns a promise resolving to built-in (with overrides merged) + custom presets combined. */
     loadPresets() {
         return new Promise(resolve => {
             chrome.storage.sync.get([EnvAware.PRESETS_KEY], result => {
-                resolve([...EnvAware.DEFAULT_PRESETS, ...(result[EnvAware.PRESETS_KEY] || [])]);
+                const custom = result[EnvAware.PRESETS_KEY] || [];
+                const overrides = custom.filter(p => p.builtInOverride);
+                const userPresets = custom.filter(p => !p.builtInOverride);
+
+                const builtIn = EnvAware.DEFAULT_PRESETS.map(preset => {
+                    const override = overrides.find(o => o.name === preset.name);
+                    return override
+                        ? { ...preset, ...override, builtIn: true }
+                        : preset;
+                });
+
+                resolve([...builtIn, ...userPresets]);
             });
         });
     },
 
-    /** Persists the custom-only preset list (no builtIn entries) to storage. */
+    /** Persists the custom-only preset list (no builtIn entries, but may include builtInOverride entries) to storage. */
     saveCustomPresets(list) {
         return new Promise(resolve => {
             chrome.storage.sync.set({ [EnvAware.PRESETS_KEY]: list }, resolve);
         });
     },
 
-    /* ── Pattern Matching ────────────────────────── */
+    /** Returns the original DEFAULT_PRESETS entry by name (for "Reset to Default"). */
+    getDefaultBuiltInPreset(name) {
+        return EnvAware.DEFAULT_PRESETS.find(p => p.name === name) || null;
+    },
+
+    /** Updates all configs with matching presetName to use newVisuals, saves to storage. */
+    propagatePresetToConfigs(presetName, newVisuals) {
+        return new Promise(resolve => {
+            chrome.storage.sync.get([EnvAware.STORAGE_KEY], result => {
+                const configs = result[EnvAware.STORAGE_KEY] || [];
+                let changed = false;
+                configs.forEach(c => {
+                    if (c.presetName === presetName) {
+                        EnvAware.VISUAL_FIELDS.forEach(f => { c[f] = newVisuals[f]; });
+                        changed = true;
+                    }
+                });
+                if (changed) {
+                    chrome.storage.sync.set({ [EnvAware.STORAGE_KEY]: configs }, resolve);
+                } else {
+                    resolve();
+                }
+            });
+        });
+    },
+
+    /** Clears presetName on all configs referencing the given preset (for delete cascade). */
+    unlinkPresetFromConfigs(presetName) {
+        return new Promise(resolve => {
+            chrome.storage.sync.get([EnvAware.STORAGE_KEY], result => {
+                const configs = result[EnvAware.STORAGE_KEY] || [];
+                let changed = false;
+                configs.forEach(c => {
+                    if (c.presetName === presetName) {
+                        c.presetName = null;
+                        changed = true;
+                    }
+                });
+                if (changed) {
+                    chrome.storage.sync.set({ [EnvAware.STORAGE_KEY]: configs }, resolve);
+                } else {
+                    resolve();
+                }
+            });
+        });
+    },
+
+    /* -- Pattern Matching -------------------------- */
 
     /** Converts a user-facing glob pattern (with `*` wildcards) to a RegExp. */
     globToRegex(pattern) {
@@ -72,27 +132,68 @@ window.EnvAware = {
     /**
      * Finds the best matching **enabled** config for a given origin.
      * Exact matches (specificity = ∞) always win over glob patterns.
+     * Configs whose exclusions list matches the full URL are skipped.
+     * @param {string} url — full page URL, used for exclusion matching
      */
-    findMatchingConfig(configs, origin) {
+    findMatchingConfig(configs, origin, url) {
+        const matchUrl = url || origin;
         let bestMatch = null;
         let bestScore = -Infinity;
 
         configs.forEach(config => {
             if (!config.enabled) return;
             const regex = EnvAware.globToRegex(config.pattern);
-            if (regex.test(origin)) {
-                const score = EnvAware.getSpecificity(config.pattern);
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMatch = config;
-                }
+            if (!regex.test(origin)) return;
+
+            // Skip if full URL matches any exclusion pattern
+            const excluded = (config.exclusions || []).some(ex =>
+                EnvAware.globToRegex(ex).test(matchUrl)
+            );
+            if (excluded) return;
+
+            const score = EnvAware.getSpecificity(config.pattern);
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = config;
             }
         });
 
         return bestMatch;
     },
 
-    /* ── DOM Utilities ────────────────────────────── */
+    /**
+     * Returns { config, exclusionPattern } if the best-matching enabled config
+     * for the origin is blocked by an exclusion. Returns null otherwise.
+     * @param {string} url — full page URL, used for exclusion matching
+     */
+    findExcludedMatch(configs, origin, url) {
+        const matchUrl = url || origin;
+        let bestMatch = null;
+        let bestScore = -Infinity;
+        let matchedExclusion = null;
+
+        configs.forEach(config => {
+            if (!config.enabled) return;
+            const regex = EnvAware.globToRegex(config.pattern);
+            if (!regex.test(origin)) return;
+
+            const score = EnvAware.getSpecificity(config.pattern);
+            if (score > bestScore) {
+                const ex = (config.exclusions || []).find(ex =>
+                    EnvAware.globToRegex(ex).test(matchUrl)
+                );
+                if (ex) {
+                    bestScore = score;
+                    bestMatch = config;
+                    matchedExclusion = ex;
+                }
+            }
+        });
+
+        return bestMatch ? { config: bestMatch, exclusionPattern: matchedExclusion } : null;
+    },
+
+    /* -- DOM Utilities ------------------------------ */
 
     /** Escapes a string for safe innerHTML usage. */
     escapeHtml(str) {

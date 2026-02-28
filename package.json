@@ -1,0 +1,13 @@
+{
+  "name": "envaware",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Instantly identify your environment with custom watermark overlays.",
+  "scripts": {
+    "zip": "node scripts/zip.js",
+    "release": "release-it"
+  },
+  "devDependencies": {
+    "release-it": "^18.1.2"
+  }
+}

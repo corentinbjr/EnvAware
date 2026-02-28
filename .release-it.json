@@ -1,0 +1,20 @@
+{
+  "git": {
+    "commitMessage": "release v${version}",
+    "tagName": "v${version}",
+    "tagAnnotation": "v${version}"
+  },
+  "npm": {
+    "publish": false
+  },
+  "github": {
+    "release": true,
+    "releaseName": "v${version}",
+    "assets": ["envaware-v${version}.zip"]
+  },
+  "hooks": {
+    "before:init": "git fetch origin && git diff --quiet HEAD origin/main || echo 'Warning: local differs from remote'",
+    "after:bump": "node scripts/sync-version.js ${version} && git add manifest.json && npm run zip",
+    "after:release": "echo 'Released v${version}'"
+  }
+}
