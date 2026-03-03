@@ -35,7 +35,7 @@ Zero dependencies. No build step. Pure vanilla JS.
 ## Installation
 
 ### Chrome Web Store (Recommended)
-*Coming soon.*
+https://chromewebstore.google.com/detail/envaware/ajgcfalfpjlkmimkjombnoocpccipknp
 
 ### Manual Installation (Developer Mode)
 1. Clone this repository:

@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "EnvAware",
     "short_name": "EnvAware",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Instantly identify your environment with custom watermark overlays. Supports wildcards, per-site configs, presets, and live preview.",
     "homepage_url": "https://github.com/corentinbjr/EnvAware",
     "permissions": [
